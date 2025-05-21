@@ -1,10 +1,10 @@
-admission_type_id,description
+﻿admission_type_id,description
 1,Emergency
 2,Urgent
 3,Elective
 4,Newborn
 5,Not Available
-6,NULL
+6,Unknown
 7,Trauma Center
 8,Not Mapped
 ,
@@ -26,7 +26,7 @@ discharge_disposition_id,description
 15,Discharged/transferred within this institution to Medicare approved swing bed
 16,Discharged/transferred/referred another institution for outpatient services
 17,Discharged/transferred/referred to this institution for outpatient services
-18,NULL
+18,Unknown
 19,"Expired at home. Medicaid only, hospice."
 20,"Expired in a medical facility. Medicaid only, hospice."
 21,"Expired, place unknown. Medicaid only, hospice."
@@ -56,7 +56,7 @@ admission_source_id,description
 13, Sick Baby
 14, Extramural Birth
 15,Not Available
-17,NULL
+17,Unknown
 18, Transfer From Another Home Health Agency
 19,Readmission to Same Home Health Agency
 20, Not Mapped

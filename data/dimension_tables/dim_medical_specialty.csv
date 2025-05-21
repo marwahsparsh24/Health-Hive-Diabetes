@@ -1,0 +1,16 @@
+medical_specialty,medical_specialty_id
+Other,1
+InternalMedicine,2
+Cardiology,3
+Family/GeneralPractice,4
+Nephrology,5
+Surgery-General,6
+Orthopedics,7
+Orthopedics-Reconstructive,8
+Emergency/Trauma,9
+Psychiatry,10
+Surgery-Cardiovascular/Thoracic,11
+Pulmonology,12
+ObstetricsandGynecology,13
+Radiologist,14
+Urology,15
