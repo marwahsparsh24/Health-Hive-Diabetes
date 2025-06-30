@@ -1,16 +1,24 @@
 import pandas as pd
-import os
+import numpy as np
+from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+from sklearn.preprocessing import LabelEncoder
 
-# Load cleaned dataset
-df = pd.read_csv("data/cleaned_diabetes_data.csv")
+# Define S3 paths
+bucket = "health-hive-diabetes-dataset"
+input_data_path = f"s3://{bucket}/data/"
+output_dim_path = f"s3://{bucket}/star_schema/dimension_tables/"
+output_fact_path = f"s3://{bucket}/star_schema/fact_tables/"
+
+# -------------------------------
+# Load cleaned dataset and mapping
+# -------------------------------
+df = pd.read_csv(input_data_path + "cleaned_diabetes_data.csv")
 df.columns = df.columns.str.strip()
 
-# Load raw mapping file (stacked vertical format)
-mapping_raw = pd.read_csv("data/IDS_mapping.csv", header=None)
-#mapping_raw.columns = mapping_raw.columns.str.strip()
+mapping_raw = pd.read_csv(input_data_path + "IDS_mapping.csv", header=None)
 
 # ----------------------------
-# Extract admission_type mapping
+# Extract ID mappings
 # ----------------------------
 admission_type_start = mapping_raw[mapping_raw[0] == "admission_type_id"].index[0] + 1
 discharge_start = mapping_raw[mapping_raw[0] == "discharge_disposition_id"].index[0]
@@ -19,9 +27,6 @@ admission_type = mapping_raw.iloc[admission_type_start:discharge_start].dropna()
 admission_type.columns = ['admission_type_id', 'admission_type_description']
 admission_type['admission_type_id'] = pd.to_numeric(admission_type['admission_type_id'], errors='coerce').astype('Int64')
 
-# ----------------------------
-# Extract discharge_disposition mapping
-# ----------------------------
 discharge_start += 1
 admission_source_start = mapping_raw[mapping_raw[0] == "admission_source_id"].index[0]
 
@@ -29,17 +34,11 @@ discharge = mapping_raw.iloc[discharge_start:admission_source_start].dropna()
 discharge.columns = ['discharge_disposition_id', 'discharge_description']
 discharge['discharge_disposition_id'] = pd.to_numeric(discharge['discharge_disposition_id'], errors='coerce').astype('Int64')
 
-# ----------------------------
-# Extract admission_source mapping
-# ----------------------------
 admission_source_start += 1
 admission_source = mapping_raw.iloc[admission_source_start:].dropna()
 admission_source.columns = ['admission_source_id', 'source_description']
 admission_source['admission_source_id'] = pd.to_numeric(admission_source['admission_source_id'], errors='coerce').astype('Int64')
 
-# ----------------------------
-# Ensure main df ID columns are also Int64
-# ----------------------------
 df['admission_type_id'] = pd.to_numeric(df['admission_type_id'], errors='coerce').astype('Int64')
 df['discharge_disposition_id'] = pd.to_numeric(df['discharge_disposition_id'], errors='coerce').astype('Int64')
 df['admission_source_id'] = pd.to_numeric(df['admission_source_id'], errors='coerce').astype('Int64')
@@ -47,32 +46,24 @@ df['admission_source_id'] = pd.to_numeric(df['admission_source_id'], errors='coe
 # -------------------------------
 # DIMENSION TABLES
 # -------------------------------
-
-# dim_patient
 dim_patient = df[['patient_nbr', 'race', 'gender', 'age']].drop_duplicates().rename(columns={
     'patient_nbr': 'patient_id'
 })
 
-# dim_admission_type
 dim_admission_type = df[['admission_type_id']].drop_duplicates()
 dim_admission_type = dim_admission_type.merge(admission_type, on='admission_type_id', how='left')
 
-# dim_discharge_disposition
 dim_discharge_disposition = df[['discharge_disposition_id']].drop_duplicates()
 dim_discharge_disposition = dim_discharge_disposition.merge(discharge, on='discharge_disposition_id', how='left')
 
-# dim_admission_source
 dim_admission_source = df[['admission_source_id']].drop_duplicates()
 dim_admission_source = dim_admission_source.merge(admission_source, on='admission_source_id', how='left')
 
-# dim_medical_specialty
 df.rename(columns={'medical_specialty_imputed': 'medical_specialty'}, inplace=True)
 dim_medical_specialty = df[['medical_specialty']].drop_duplicates().dropna().reset_index(drop=True)
 dim_medical_specialty['medical_specialty_id'] = dim_medical_specialty.index + 1
 df = df.merge(dim_medical_specialty, on='medical_specialty', how='left')
 
-# dim_drugs
-# List of drug columns from the original dataset
 drug_columns = [
     "metformin", "repaglinide", "nateglinide", "chlorpropamide",
     "glimepiride", "acetohexamide", "glipizide", "glyburide",
@@ -83,18 +74,13 @@ drug_columns = [
     "metformin-rosiglitazone", "metformin-pioglitazone"
 ]
 
-# Melt the drug columns into long format
 drug_data = df[drug_columns].copy()
-dim_drug = drug_data.melt(var_name="drug_name", value_name="response")
-
-dim_drug = dim_drug.drop_duplicates().reset_index(drop=True)
-
+dim_drug = drug_data.melt(var_name="drug_name", value_name="response").drop_duplicates().dropna().reset_index(drop=True)
 dim_drug.insert(0, "drug_id", range(1, len(dim_drug) + 1))
 
 # -------------------------------
-# FACT TABLEs
+# FACT TABLES
 # -------------------------------
-
 fact_hospital_encounter = df[[
     'encounter_id', 'patient_nbr', 'admission_type_id', 'discharge_disposition_id',
     'admission_source_id', 'medical_specialty_id', 'time_in_hospital',
@@ -104,34 +90,20 @@ fact_hospital_encounter = df[[
 ]].rename(columns={'patient_nbr': 'patient_id'})
 
 drug_df = df[["encounter_id"] + drug_columns].copy()
-
-# Melt to long format
-fact_drug_response = drug_df.melt(
-    id_vars="encounter_id",
-    value_vars=drug_columns,
-    var_name="drug_name",
-    value_name="response"
-)
-
-# Drop missing responses
+fact_drug_response = drug_df.melt(id_vars="encounter_id", value_vars=drug_columns, var_name="drug_name", value_name="response")
 fact_drug_response = fact_drug_response.dropna().reset_index(drop=True)
 
-
 # -------------------------------
-# EXPORT TO CORRECT FOLDERS
+# EXPORT TO S3 (CSV)
 # -------------------------------
+dim_patient.to_csv(output_dim_path + "dim_patient.csv", index=False)
+dim_admission_type.to_csv(output_dim_path + "dim_admission_type.csv", index=False)
+dim_discharge_disposition.to_csv(output_dim_path + "dim_discharge_disposition.csv", index=False)
+dim_admission_source.to_csv(output_dim_path + "dim_admission_source.csv", index=False)
+dim_medical_specialty.to_csv(output_dim_path + "dim_medical_specialty.csv", index=False)
+dim_drug.to_csv(output_dim_path + "dim_drug.csv", index=False)
 
-os.makedirs("data/dimension_tables", exist_ok=True)
-os.makedirs("data/fact_table", exist_ok=True)
+fact_hospital_encounter.to_csv(output_fact_path + "fact_hospital_encounter.csv", index=False)
+fact_drug_response.to_csv(output_fact_path + "fact_drug_response.csv", index=False)
 
-dim_patient.to_csv("data/dimension_tables/dim_patient.csv", index=False)
-dim_admission_type.to_csv("data/dimension_tables/dim_admission_type.csv", index=False)
-dim_discharge_disposition.to_csv("data/dimension_tables/dim_discharge_disposition.csv", index=False)
-dim_admission_source.to_csv("data/dimension_tables/dim_admission_source.csv", index=False)
-dim_medical_specialty.to_csv("data/dimension_tables/dim_medical_specialty.csv", index=False)
-dim_drug.to_csv("data/dimension_tables/dim_drug.csv", index=False)
-fact_hospital_encounter.to_csv("data/fact_table/fact_hospital_encounter.csv", index=False)
-fact_drug_response.to_csv("data/fact_table/fact_drug_response.csv", index=False)
-
-
-print("✅ All dimension and fact tables saved in 'data/' folder.")
+print("✅ All dimension and fact tables exported to S3.")

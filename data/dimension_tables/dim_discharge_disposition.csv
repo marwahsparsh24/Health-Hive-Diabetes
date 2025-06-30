@@ -1,27 +1,22 @@
 discharge_disposition_id,discharge_description
-25,Not Mapped
-1,Discharged to home
 3,Discharged/transferred to SNF
-6,Discharged/transferred to home with home health service
+1,Discharged to home
 2,Discharged/transferred to another short term hospital
-5,Discharged/transferred to another type of inpatient care institution
-11,Expired
+25,Not Mapped
+6,Discharged/transferred to home with home health service
 7,Left AMA
+11,Expired
+5,Discharged/transferred to another type of inpatient care institution
 10,Neonate discharged to another hospital for neonatal aftercare
 4,Discharged/transferred to ICF
 14,Hospice / medical facility
-18,Unknown
 8,Discharged/transferred to home under care of Home IV provider
-13,Hospice / home
-12,Still patient or expected to return for outpatient services
-16,Discharged/transferred/referred another institution for outpatient services
-17,Discharged/transferred/referred to this institution for outpatient services
+18,Unknown
 22,Discharged/transferred to another rehab fac including rehab units of a hospital .
+13,Hospice / home
 23,Discharged/transferred to a long term care hospital.
 9,Admitted as an inpatient to this hospital
-20,"Expired in a medical facility. Medicaid only, hospice."
 15,Discharged/transferred within this institution to Medicare approved swing bed
-24,Discharged/transferred to a nursing facility certified under Medicaid but not certified under Medicare.
 28,Discharged/transferred/referred to a psychiatric hospital of psychiatric distinct part unit of a hospital
 19,"Expired at home. Medicaid only, hospice."
-27,Discharged/transferred to a federal health care facility.
+24,Discharged/transferred to a nursing facility certified under Medicaid but not certified under Medicare.
